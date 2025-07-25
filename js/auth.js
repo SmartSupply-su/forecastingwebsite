@@ -1,96 +1,73 @@
-// 🌐 Supabase Initialization
 const supabaseUrl = 'https://pbekzjgteinnntprfzhm.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiZWt6amd0ZWlubm50cHJmemhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzNDM5MjYsImV4cCI6MjA2NDkxOTkyNn0.1yRQEisizC-MpDR6B5fJc2Z7Wzk1xcwsySyJMktSsF4';
 const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-// 🛡️ Protected Pages
-const protectedPages = ["home.html", "upload.html", "forecast.html", "sales.html", "inventory.html"];
-const currentPage = window.location.pathname.split("/").pop();
+const page = window.location.pathname.split("/").pop();
+const form = document.querySelector("form");
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // 🔁 Manually restore session (before any checks)
+  // 🟢 Restore session
   const access_token = localStorage.getItem("sb-access-token");
   const refresh_token = localStorage.getItem("sb-refresh-token");
 
   if (access_token && refresh_token) {
+    console.log("🌐 Restoring session with tokens");
     await supabase.auth.setSession({ access_token, refresh_token });
   }
 
-  // 🔒 Page Protection
-  if (protectedPages.includes(currentPage)) {
-    const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log("🟡 Current session on load:", session);
+
+  if (page === "home.html") {
     if (!session) {
-      console.warn("🔐 Protected page — no session");
+      alert("No session. Redirecting to login.");
       window.location.href = "index.html";
     } else {
-      console.log("✅ Authenticated — showing protected page");
       document.body.style.display = "block";
     }
   }
 
-  // 🧭 On Login Page
-  if (currentPage === "index.html") {
-    const form = document.querySelector("form");
-
-    // If already logged in, redirect
-    const { data: { session } } = await supabase.auth.getSession();
+  if (page === "index.html" && form) {
     if (session) {
+      console.log("✅ Already logged in. Redirecting to home.");
       window.location.href = "home.html";
       return;
     }
 
-    // ✅ Fix: Attach login handler ONLY after Supabase session initializes
-    supabase.auth.getSession().then(() => {
-      console.log("✅ Supabase ready — attaching login handler");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-      if (form) {
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
 
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      alert("Login failed: " + error.message);
-      console.error("❌ Login error:", error);
-      return;
-    }
-
-    // Save tokens manually (optional, but safe)
-    localStorage.setItem("sb-access-token", data.session.access_token);
-    localStorage.setItem("sb-refresh-token", data.session.refresh_token);
-
-    console.log("✅ Login success, now waiting for Supabase to broadcast session...");
-
-    // ✅ Delay redirect until Supabase confirms session is active
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') {
-        console.log("🎯 Supabase confirmed session via event:", session);
-        setTimeout(() => {
-          window.location.href = "home.html";
-        }, 200); // delay ensures persistence
+      if (error) {
+        alert("Login failed: " + error.message);
+        return;
       }
-    });
-  });
-}
 
+      console.log("✅ Login success:", data.session);
+      localStorage.setItem("sb-access-token", data.session.access_token);
+      localStorage.setItem("sb-refresh-token", data.session.refresh_token);
+
+      setTimeout(async () => {
+        const { data: { session: newSession } } = await supabase.auth.getSession();
+        console.log("🧪 Session after delay:", newSession);
+        if (newSession) {
+          window.location.href = "home.html";
+        } else {
+          alert("Session not ready. Please refresh and try again.");
+        }
+      }, 300); // allow Supabase time to persist session
+    });
+  }
+});
 
 // 🚪 Logout
 async function logout() {
   await supabase.auth.signOut();
-  localStorage.removeItem("sb-access-token");
-  localStorage.removeItem("sb-refresh-token");
+  localStorage.clear();
   window.location.href = "index.html";
 }
-
-// 🍔 Responsive Menu
-function toggleMenu() {
-  const nav = document.getElementById("navLinks");
-  nav.classList.toggle("show");
-}
-
-// 🌍 Global Access
 window.logout = logout;
-window.toggleMenu = toggleMenu;
