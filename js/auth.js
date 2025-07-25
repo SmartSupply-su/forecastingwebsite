@@ -44,31 +44,38 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log("✅ Supabase ready — attaching login handler");
 
       if (form) {
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-          const email = document.getElementById("email").value;
-          const password = document.getElementById("password").value;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
 
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-          if (error) {
-            alert("Login failed: " + error.message);
-            console.error("❌ Login error:", error);
-            return;
-          }
+    if (error) {
+      alert("Login failed: " + error.message);
+      console.error("❌ Login error:", error);
+      return;
+    }
 
-          // 💾 Save session manually
-          localStorage.setItem("sb-access-token", data.session.access_token);
-          localStorage.setItem("sb-refresh-token", data.session.refresh_token);
+    // Save tokens manually (optional, but safe)
+    localStorage.setItem("sb-access-token", data.session.access_token);
+    localStorage.setItem("sb-refresh-token", data.session.refresh_token);
 
-          console.log("✅ Login successful — redirecting to home.html");
+    console.log("✅ Login success, now waiting for Supabase to broadcast session...");
+
+    // ✅ Delay redirect until Supabase confirms session is active
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        console.log("🎯 Supabase confirmed session via event:", session);
+        setTimeout(() => {
           window.location.href = "home.html";
-        });
+        }, 200); // delay ensures persistence
       }
     });
-  }
-});
+  });
+}
+
 
 // 🚪 Logout
 async function logout() {
