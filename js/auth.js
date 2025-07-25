@@ -19,13 +19,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   console.log("🟡 Current session on load:", session);
 
   if (page === "home.html") {
+  // Wait 200ms to ensure Supabase has initialized session properly
+  setTimeout(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log("🏠 Home page session after delay:", session);
+
     if (!session) {
       alert("No session. Redirecting to login.");
       window.location.href = "index.html";
     } else {
       document.body.style.display = "block";
     }
-  }
+  }, 200);
+}
 
   if (page === "index.html" && form) {
     if (session) {
