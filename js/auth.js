@@ -8,19 +8,17 @@ const protectedPages = ["home.html", "upload.html", "forecast.html", "sales.html
 const currentPage = window.location.pathname.split("/").pop();
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // 🔐 Manual session restore (before any checks)
+  // 🔁 Manually restore session (before any checks)
   const access_token = localStorage.getItem("sb-access-token");
   const refresh_token = localStorage.getItem("sb-refresh-token");
 
   if (access_token && refresh_token) {
-    const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
-    console.log("🔁 Session restored:", data.session);
+    await supabase.auth.setSession({ access_token, refresh_token });
   }
 
-  // 🔒 Page protection
+  // 🔒 Page Protection
   if (protectedPages.includes(currentPage)) {
     const { data: { session } } = await supabase.auth.getSession();
-
     if (!session) {
       console.warn("🔐 Protected page — no session");
       window.location.href = "index.html";
@@ -30,45 +28,49 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 🧭 On login page — auto redirect if already logged in
+  // 🧭 On Login Page
   if (currentPage === "index.html") {
-    const { data: { session } } = await supabase.auth.getSession();
+    const form = document.querySelector("form");
 
+    // If already logged in, redirect
+    const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      console.log("✅ Already logged in — redirecting to home");
       window.location.href = "home.html";
       return;
     }
 
-    // 🧾 Attach login handler
-    const form = document.querySelector("form");
-    if (form) {
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+    // ✅ Fix: Attach login handler ONLY after Supabase session initializes
+    supabase.auth.getSession().then(() => {
+      console.log("✅ Supabase ready — attaching login handler");
 
-        const email = document.getElementById("email").value;
-        const password = document.getElementById("password").value;
+      if (form) {
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          const email = document.getElementById("email").value;
+          const password = document.getElementById("password").value;
 
-        if (error) {
-          alert("Login failed: " + error.message);
-          console.error("❌ Login error:", error);
-          return;
-        }
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-        // 💾 Save session tokens manually
-        localStorage.setItem("sb-access-token", data.session.access_token);
-        localStorage.setItem("sb-refresh-token", data.session.refresh_token);
+          if (error) {
+            alert("Login failed: " + error.message);
+            console.error("❌ Login error:", error);
+            return;
+          }
 
-        console.log("✅ Login successful — redirecting to home.html");
-        window.location.href = "home.html";
-      });
-    }
+          // 💾 Save session manually
+          localStorage.setItem("sb-access-token", data.session.access_token);
+          localStorage.setItem("sb-refresh-token", data.session.refresh_token);
+
+          console.log("✅ Login successful — redirecting to home.html");
+          window.location.href = "home.html";
+        });
+      }
+    });
   }
 });
 
-// 🚪 Logout: Sign out + clear tokens
+// 🚪 Logout
 async function logout() {
   await supabase.auth.signOut();
   localStorage.removeItem("sb-access-token");
@@ -76,7 +78,7 @@ async function logout() {
   window.location.href = "index.html";
 }
 
-// 🍔 Responsive Nav
+// 🍔 Responsive Menu
 function toggleMenu() {
   const nav = document.getElementById("navLinks");
   nav.classList.toggle("show");
