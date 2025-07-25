@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Protect webpages before success login
-  const protectedPages = ["index.html", "upload.html", "forecast.html", "sales.html", "inventory.html"];
+  const protectedPages = ["home.html", "upload.html", "forecast.html", "sales.html", "inventory.html"];
 
   if (protectedPages.some(p => window.location.pathname.includes(p))) {
   protectPage();
