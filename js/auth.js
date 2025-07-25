@@ -1,29 +1,43 @@
-// 🌐 Supabase Initialization
+// ✅ Supabase Init
 const supabaseUrl = 'https://pbekzjgteinnntprfzhm.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // shortened for readability
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // your full key
 const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-// 🔐 Define Protected Pages
+// ✅ Define Pages
 const protectedPages = ["home.html", "upload.html", "forecast.html", "sales.html", "inventory.html"];
-const page = window.location.pathname.split("/").pop();
+const currentPage = window.location.pathname.split("/").pop();
 
+// ✅ Page Entry
 document.addEventListener("DOMContentLoaded", async () => {
-  // 🟡 Show login form only if not logged in
-  if (page === "index.html") {
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log("🟡 Current session on load:", session);
+  // --- Check Auth State On Load ---
+  const {
+    data: { session },
+    error
+  } = await supabase.auth.getSession();
 
+  console.log("🟡 Session on page load:", session);
+
+  // 🔐 Protected Page Handling
+  if (protectedPages.includes(currentPage)) {
+    if (!session) {
+      console.log("🔒 No session on protected page, redirecting...");
+      return window.location.href = "index.html";
+    }
+    document.body.style.display = "block";
+  }
+
+  // 🧭 On Login Page
+  if (currentPage === "index.html") {
     if (session) {
-      console.log("✅ Already logged in. Redirecting to home...");
-      window.location.href = "home.html";
-      return;
+      console.log("🔁 Already logged in, redirecting to home.html");
+      return window.location.href = "home.html";
     }
 
-    // Handle login form
     const form = document.querySelector("form");
     if (form) {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+
         const email = document.getElementById("email").value;
         const password = document.getElementById("password").value;
 
@@ -34,58 +48,43 @@ document.addEventListener("DOMContentLoaded", async () => {
           return;
         }
 
-        // Wait until session is fully initialized
-        let retries = 0;
-        const maxRetries = 10;
+        // 🕒 Wait for session to sync
+        console.log("⏳ Logging in...");
+        const MAX_WAIT = 2000; // 2 seconds
+        const INTERVAL = 200;
+        let waited = 0;
 
-        const waitForSession = async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            console.log("✅ Session initialized, redirecting...");
-            window.location.href = "home.html";
-          } else if (retries < maxRetries) {
-            retries++;
-            setTimeout(waitForSession, 200);
-          } else {
-            alert("⚠️ Login succeeded but session not initialized. Try again.");
+        const waitUntilSession = setInterval(async () => {
+          const { data: { session: newSession } } = await supabase.auth.getSession();
+
+          if (newSession) {
+            clearInterval(waitUntilSession);
+            console.log("✅ Session ready. Redirecting...");
+            return window.location.href = "home.html";
           }
-        };
 
-        waitForSession();
+          waited += INTERVAL;
+          if (waited >= MAX_WAIT) {
+            clearInterval(waitUntilSession);
+            alert("⚠️ Login might have succeeded, but session is not ready. Please refresh.");
+          }
+        }, INTERVAL);
       });
     }
   }
-
-  // 🛡️ Protect private pages
-  if (protectedPages.includes(page)) {
-    // hide content until verified
-    document.body.style.display = "none";
-
-    setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log("🛡️ Checking session on protected page:", session);
-
-      if (!session) {
-        window.location.href = "index.html";
-      } else {
-        document.body.style.display = "block";
-      }
-    }, 300); // Give Supabase time to restore session
-  }
 });
 
-// 🔓 Logout
+// 🔓 Logout Handler
 async function logout() {
   await supabase.auth.signOut();
   window.location.href = "index.html";
 }
 
-// 🍔 Responsive Header Menu
+// 🍔 Header Toggle
 function toggleMenu() {
   const nav = document.getElementById("navLinks");
   nav.classList.toggle("show");
 }
 
-// 🌍 Expose globally
 window.logout = logout;
 window.toggleMenu = toggleMenu;
